@@ -412,7 +412,7 @@
           tileset.tileFailed.addEventListener(() => status("Some tiles could not load. Check your connection or ion quota.", true));
           const pins = new C.PinBuilder();
           LANDMARKS.forEach((place, i) => markers.push(viewer.entities.add({
-            id: `landmark-${i}`, name: place.name,
+            id: `landmark-${i}`, name: place.name, show: false,
             position: C.Cartesian3.fromDegrees(place.lon, place.lat),
             billboard: { image: pins.fromText(String(i + 1), C.Color.fromCssColorString("#335e43"), 44).toDataURL(),
               verticalOrigin: C.VerticalOrigin.BOTTOM, heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
@@ -422,10 +422,18 @@
             const picked = viewer.scene.pick(event.position), index = picked ? markers.indexOf(picked.id) : -1;
             if (index >= 0) visit(index);
           }, C.ScreenSpaceEventType.LEFT_CLICK);
-          ready = true;
-          buttons.forEach(button => { button.disabled = false; });
-          $("reset").disabled = $("time").disabled = false;
-          status("Explore City Park · choose a numbered landmark");
+          const stopWatching = tileset.tileVisible.addEventListener(tile => {
+            if (!tile.content?.trianglesLength) return;
+            stopWatching();
+            // Cesium raises tileVisible during traversal. Update entities after that frame.
+            requestAnimationFrame(() => {
+              ready = true;
+              select(-1);
+              buttons.forEach(button => { button.disabled = false; });
+              $("reset").disabled = $("time").disabled = false;
+              status("Explore City Park · choose a numbered landmark");
+            });
+          });
         } catch {
           notice("The 3D view could not start", "Check WebGL support, your ion token, access to asset 2275207, the token’s allowed URLs, and your ion quota. Then reload.");
         }
