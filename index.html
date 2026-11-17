@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#182c26">
+  <title>City Park · Denver in 3D</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.147/Build/Cesium/Widgets/widgets.css">
+  <style>
+    :root { color-scheme: light; font: 15px/1.45 system-ui, sans-serif; color: #20392f; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; height: 100dvh; display: grid;
+      grid-template: minmax(0, 1fr) auto / 292px minmax(0, 1fr); background: #182c26; }
+    button, a, input { -webkit-tap-highlight-color: transparent; }
+    button, .ground { min-height: 44px; font: inherit; cursor: pointer; }
+    button { color: inherit; border: 1px solid #cbd3c5; border-radius: 10px; background: #fffdf7; }
+    button:disabled { opacity: .45; cursor: default; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #bb6326; outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    aside { padding: 24px 18px; background: #f5f3e9; overflow-y: auto; min-height: 0; }
+    .eyebrow { margin: 0 0 6px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 0; font: 38px/1.1 Georgia, serif; font-weight: normal; }
+    .intro { color: #5c6d61; margin: 10px 0 20px; font-size: 13px; }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    #toggle { display: none; padding: 6px 12px; }
+    #places { display: grid; gap: 8px; padding: 0; list-style: none; margin: 0 0 18px; }
+    .place { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px; }
+    .place[aria-pressed="true"] { background: #dfebd5; border-color: #3e664b; }
+    .number { display: grid; place-items: center; flex: 0 0 26px; height: 26px;
+      border: 1px solid #bcccb5; border-radius: 50%; font-size: 12px; }
+    .place-name { font-size: 13px; font-weight: 600; }
+    .ground { display: flex; align-items: center; padding: 4px 12px 4px 46px; color: #315c3b; font-size: 13px; }
+    #reset { width: 100%; background: #244c3a; color: white; border: 0; margin-bottom: 22px; }
+    .time-label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; }
+    #time { width: 100%; height: 44px; margin: 0; accent-color: #315c3b; }
+    .small { margin: 0 0 16px; font-size: 11px; color: #5c6d61; }
+    #help { padding-top: 14px; border-top: 1px solid #d6dccf; font-size: 12px; color: #5c6d61; }
+    main { position: relative; min-width: 0; min-height: 0; }
+    #map { position: absolute; inset: 0; }
+    #map canvas { touch-action: none; }
+    #status { position: absolute; top: 12px; left: 12px; right: 12px; width: fit-content;
+      max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 8px;
+      background: #182c26e8; color: #f5f3e9; font-size: 12px; pointer-events: none; }
+    #status[data-error="true"] { background: #732e20; }
+    #notice { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; }
+    #notice > div { background: #f5f3e9; border-radius: 16px; padding: 24px;
+      max-width: 390px; box-shadow: 0 14px 50px #0004; }
+    #notice h2 { font: 26px Georgia, serif; margin: 0 0 12px; }
+    #notice p { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+    footer { grid-column: 1 / -1; position: relative; z-index: 2; background: #182c26; color: white;
+      padding: 6px max(12px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+    #credits { min-height: 28px; line-height: 1.6; overflow-wrap: anywhere; }
+    #credits .cesium-widget-credits { position: static; display: block; white-space: normal; padding: 0; }
+    #credits .cesium-credit-textContainer { white-space: normal; }
+    #credits img { vertical-align: middle !important; }
+    footer a { color: white; }
+    .sources { font-size: 10px; opacity: .85; }
+    @media (max-width: 700px) {
+      body { grid-template: auto minmax(0, 1fr) auto / minmax(0, 1fr); }
+      aside { padding: 12px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left)); max-height: 45dvh; }
+      h1 { font-size: 27px; }
+      .eyebrow { margin: 0 0 3px; font-size: 9px; }
+      #toggle { display: block; }
+      .intro { margin: 8px 0 12px; }
+      #places { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .place { min-height: 60px; }
+      .place-name { font-size: 12px; }
+      .ground { padding-left: 8px; }
+      #reset { margin-bottom: 14px; }
+      #help { margin-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <aside aria-label="Park explorer controls">
+    <div class="top">
+      <div><p class="eyebrow">Denver, Colorado · 3D explorer</p><h1>City Park</h1></div>
+      <button id="toggle" type="button" aria-expanded="false" aria-controls="panel">Explore</button>
+    </div>
+    <div id="panel">
+      <p class="intro">Five places. A different perspective.<br>Choose a stop to get close to the park.</p>
+      <ol id="places" aria-label="Landmarks"></ol>
+      <button id="reset" type="button" disabled>↗ Reset view</button>
+      <label class="time-label" for="time"><span>Time of day</span><output id="timeLabel" for="time"></output></label>
+      <input id="time" type="range" min="5" max="21" step="0.25" value="17" disabled>
+      <p class="small">June 21 · Denver daylight time<br>Sun position is simulated; photographed lighting remains.</p>
+      <p id="help">Drag to move · scroll to zoom · right-drag to tilt.<br>Touch: drag, pinch, or drag with two fingers.<br>Select a landmark for a low view.</p>
+    </div>
+  </aside>
+  <main aria-label="Interactive 3D view of City Park">
+    <div id="map"></div>
+    <div id="status" role="status" aria-live="polite">Starting the park explorer…</div>
+    <div id="notice" hidden><div><h2 id="noticeTitle"></h2><p id="noticeText"></p></div></div>
+  </main>
+  <footer aria-label="Map attribution">
+    <div id="credits"></div>
+    <div class="sources">Landmark coordinates: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></div>
+  </footer>
+  <noscript>This demo requires JavaScript and a browser with WebGL.</noscript>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.147/Build/Cesium/Cesium.js"></script>
+  <script>
+    const ION_TOKEN = "PASTE_TOKEN_HERE";
+    const LANDMARKS = [
+      {
+        name: "Boathouse and Pavilion", lat: 39.7461504, lon: -104.9523410,
+        // Centroid of the mapped pavilion footprint; viewpoint on its west path.
+        source: "https://www.openstreetmap.org/way/72601498",
+        view: { lat: 39.7461504, lon: -104.9528792 },
+        viewSource: "https://www.openstreetmap.org/node/2151399338",
+        splatUrl: ""
+      },
+      {
+        name: "Ferril Lake", lat: 39.7461237, lon: -104.9490072,
+        // Centroid of the mapped outer shoreline; viewpoint on the east lake loop.
+        source: "https://www.openstreetmap.org/relation/2108217",
+        view: { lat: 39.7463062, lon: -104.9467417 },
+        viewSource: "https://www.openstreetmap.org/node/468152430",
+        splatUrl: ""
+      },
+      {
+        name: "City Park Lake (Duck Lake)", lat: 39.7482048, lon: -104.9531880,
+        // Centroid of the mapped outer shoreline; viewpoint on the south sidewalk.
+        source: "https://www.openstreetmap.org/relation/2108215",
+        view: { lat: 39.7475935, lon: -104.9533908 },
+        viewSource: "https://www.openstreetmap.org/node/13286018707",
+        splatUrl: ""
+      },
+      {
+        name: "Denver Museum of Nature & Science · west steps", lat: 39.7474673, lon: -104.9439246,
+        // Midpoint of the mapped west staircase; viewpoint at its upper end, facing west.
+        source: "https://www.openstreetmap.org/way/157659618",
+        view: { lat: 39.7474748, lon: -104.9438755 },
+        viewSource: "https://www.openstreetmap.org/node/1699210003",
+        splatUrl: ""
+      },
+      {
+        name: "Denver Zoo entrance", lat: 39.7501174, lon: -104.9489583,
+        // Node explicitly tagged entrance=main; viewpoint on the approach plaza.
+        source: "https://www.openstreetmap.org/node/2123017756",
+        view: { lat: 39.7502073, lon: -104.9490129 },
+        viewSource: "https://www.openstreetmap.org/node/4798020133",
+        splatUrl: ""
+      }
+    ];
+    const PARK = { west: -104.9605, south: 39.7425, east: -104.9400, north: 39.7560 };
+    const MARGIN_DEGREES = 0.0015; // Approximately 130–167 m around the supplied bounds.
+    const MIN_CLEARANCE_M = 2.5, EYE_HEIGHT_M = 3;
+    // Absolute heights below are WGS84 ellipsoid heights, NOT heights above ground.
+    // Keep free aerial navigation conservatively above Denver's terrain/buildings.
+    // Only sampled, stationary ground viewpoints may descend below the aerial floor.
+    const AERIAL_FLOOR_M = 1850, TRANSIT_HEIGHT_M = 2100, MAX_HEIGHT_M = 6500;
+    const FRAME_REFERENCE_M = 1600; // Used only to frame the overview, never to land.
+
+    (() => {
+      "use strict";
+      const $ = id => document.getElementById(id);
+      const mobile = matchMedia("(max-width: 700px)");
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+      let viewer, tileset, surfaceAnchor = null, mode = "aerial", trip = 0, ready = false;
+      const markers = [], buttons = [];
+      const status = (message, error = false) => {
+        $("status").textContent = message;
+        $("status").dataset.error = String(error);
+      };
+      function notice(title, message) {
+        $("noticeTitle").textContent = title;
+        $("noticeText").textContent = message;
+        $("notice").hidden = false;
+        status(title, true);
+      }
+      function expand(open) {
+        $("panel").hidden = !open;
+        $("toggle").setAttribute("aria-expanded", String(open));
+        $("toggle").textContent = open ? "Close" : "Explore";
+        if (viewer) requestAnimationFrame(() => viewer.resize());
+      }
+      expand(!mobile.matches);
+      $("toggle").onclick = () => expand($("panel").hidden);
+      mobile.addEventListener("change", () => expand(!mobile.matches));
+
+      LANDMARKS.forEach((place, index) => {
+        const li = document.createElement("li"), button = document.createElement("button");
+        button.className = "place";
+        button.type = "button";
+        button.disabled = true;
+        button.setAttribute("aria-pressed", "false");
+        const number = document.createElement("span"), name = document.createElement("span");
+        number.className = "number"; number.textContent = index + 1;
+        name.className = "place-name"; name.textContent = place.name;
+        button.append(number, name);
+        button.onclick = () => visit(index);
+        buttons.push(button); li.append(button);
+        if (place.splatUrl) {
+          try {
+            const url = new URL(place.splatUrl);
+            if (!["https:", "http:"].includes(url.protocol)) throw new Error("Use an HTTP(S) URL");
+            const link = document.createElement("a");
+            link.className = "ground"; link.textContent = "Ground view ↗";
+            link.href = url.href; link.target = "_blank"; link.rel = "noopener noreferrer";
+            link.setAttribute("aria-label", `Ground view: ${place.name} (opens in a new tab)`);
+            li.append(link);
+          } catch { /* Invalid splat URLs are not made clickable. */ }
+        }
+        $("places").append(li);
+      });
+      function updateTime() {
+        const minutes = Math.round(Number($("time").value) * 60);
+        // June 21 is MDT (UTC−06:00). Date.UTC handles rollover past midnight UTC.
+        const date = new Date(Date.UTC(2026, 5, 21, 6, minutes));
+        const text = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/Denver", hour: "numeric", minute: "2-digit", timeZoneName: "short"
+        }).format(date);
+        $("timeLabel").textContent = text;
+        $("time").setAttribute("aria-valuetext", text);
+        if (viewer) {
+          viewer.clock.currentTime = Cesium.JulianDate.fromDate(date);
+          viewer.scene.requestRender();
+        }
+      }
+      $("time").oninput = updateTime;
+      updateTime();
+      if (!window.Cesium) {
+        notice("Cesium could not load", "Check your connection and whether this host permits scripts from cesium.com.");
+        return;
+      }
+      const C = Cesium, radians = C.Math.toRadians, clamp = C.Math.clamp;
+      const bounds = C.Rectangle.fromDegrees(PARK.west - MARGIN_DEGREES, PARK.south - MARGIN_DEGREES,
+        PARK.east + MARGIN_DEGREES, PARK.north + MARGIN_DEGREES);
+      const aerialHelp = $("help").innerHTML;
+      function controls(ground) {
+        const controller = viewer.scene.screenSpaceCameraController;
+        controller.enableRotate = controller.enableTranslate = controller.enableTilt = controller.enableZoom = !ground;
+        controller.enableLook = ground;
+        controller.lookEventTypes = C.CameraEventType.LEFT_DRAG;
+        controller.rotateEventTypes = C.CameraEventType.LEFT_DRAG;
+        controller.zoomEventTypes = [C.CameraEventType.WHEEL, C.CameraEventType.PINCH];
+        controller.tiltEventTypes = [C.CameraEventType.RIGHT_DRAG, C.CameraEventType.PINCH];
+        $("help").innerHTML = ground
+          ? "Drag with a mouse or one finger to look around.<br>Reset view to return to aerial exploration."
+          : aerialHelp;
+      }
+      function select(index) {
+        buttons.forEach((button, i) => button.setAttribute("aria-pressed", String(i === index)));
+        markers.forEach((marker, i) => { marker.show = i !== index; });
+      }
+      function overview() {
+        const lon = (PARK.west + PARK.east) / 2, lat = PARK.south - 0.0006;
+        const centerLat = (PARK.south + PARK.north) / 2;
+        const northDistance = radians(centerLat - lat) * 6378137;
+        const halfWidth = radians(PARK.east - PARK.west) * 6378137 * Math.cos(radians(centerLat)) / 2;
+        const halfDepth = radians(PARK.north - PARK.south) * 6378137 / 2;
+        const aspect = viewer.scene.canvas.clientWidth / Math.max(1, viewer.scene.canvas.clientHeight);
+        const tanY = Math.tan(radians(70) / 2) / Math.max(1, aspect), tanX = tanY * aspect;
+        const above = Math.max(1900, (halfWidth + 220) / tanX, (halfDepth + 220) / tanY);
+        const height = Math.min(MAX_HEIGHT_M, FRAME_REFERENCE_M + above);
+        return { destination: C.Cartesian3.fromDegrees(lon, lat, height),
+          orientation: { heading: 0, pitch: -Math.atan2(height - FRAME_REFERENCE_M, northDistance), roll: 0 } };
+      }
+      // Enforce horizontal bounds AND absolute/relative vertical limits every frame,
+      // including during flights. minimumZoomDistance alone is not a geographic fence.
+      function constrainCamera() {
+        const camera = viewer.camera, position = camera.positionCartographic;
+        const lon = clamp(position.longitude, bounds.west, bounds.east);
+        const lat = clamp(position.latitude, bounds.south, bounds.north);
+        let floor = AERIAL_FLOOR_M;
+        const atAnchor = surfaceAnchor && Math.abs(lon - surfaceAnchor.longitude) < 1e-8 &&
+          Math.abs(lat - surfaceAnchor.latitude) < 1e-8;
+        if (atAnchor) floor = surfaceAnchor.height + MIN_CLEARANCE_M;
+        if (tileset && viewer.scene.sampleHeightSupported && position.height < TRANSIT_HEIGHT_M) {
+          const liveHeight = viewer.scene.sampleHeight(new C.Cartographic(lon, lat), markers, 0.5);
+          if (Number.isFinite(liveHeight)) floor = Math.max(floor, liveHeight + MIN_CLEARANCE_M);
+        }
+        const height = clamp(position.height, Math.min(floor, MAX_HEIGHT_M), MAX_HEIGHT_M);
+        if (Math.abs(lon - position.longitude) > 1e-12 || Math.abs(lat - position.latitude) > 1e-12 ||
+            Math.abs(height - position.height) > 0.01) {
+          camera.setView({ destination: C.Cartesian3.fromRadians(lon, lat, height),
+            orientation: { heading: camera.heading, pitch: camera.pitch, roll: 0 } });
+        }
+      }
+      function fly(options, run, seconds = 1.6) {
+        if (run !== trip) return Promise.resolve(false);
+        return new Promise(resolve => viewer.camera.flyTo({ ...options,
+          duration: reducedMotion.matches ? 0 : seconds,
+          maximumHeight: Math.min(MAX_HEIGHT_M, Math.max(TRANSIT_HEIGHT_M,
+            viewer.camera.positionCartographic.height, C.Cartographic.fromCartesian(options.destination).height)),
+          complete: () => resolve(run === trip), cancel: () => resolve(false)
+        }));
+      }
+      async function rise(run) {
+        const p = viewer.camera.positionCartographic;
+        if (p.height >= TRANSIT_HEIGHT_M) return true;
+        // Lift vertically before travelling horizontally away from a sampled viewpoint.
+        return fly({ destination: C.Cartesian3.fromRadians(p.longitude, p.latitude, TRANSIT_HEIGHT_M),
+          orientation: { heading: viewer.camera.heading, pitch: radians(-55), roll: 0 } }, run, 1.1);
+      }
+      function bearing(from, to) {
+        const a = radians(from.lat), b = radians(to.lat), d = radians(to.lon - from.lon);
+        return Math.atan2(Math.sin(d) * Math.cos(b), Math.cos(a) * Math.sin(b) - Math.sin(a) * Math.cos(b) * Math.cos(d));
+      }
+      async function sampleSurface(view) {
+        if (!viewer.scene.sampleHeightSupported) throw new Error("Height sampling unavailable");
+        let timeout;
+        try {
+          const result = await Promise.race([
+            viewer.scene.sampleHeightMostDetailed([C.Cartographic.fromDegrees(view.lon, view.lat)], markers, 0.5),
+            new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("Surface timeout")), 20000); })
+          ]);
+          const point = result[0];
+          if (!point || !Number.isFinite(point.height) || point.height + EYE_HEIGHT_M >= AERIAL_FLOOR_M)
+            throw new Error("No usable ground surface");
+          return point;
+        } finally { clearTimeout(timeout); }
+      }
+      async function visit(index) {
+        if (!ready) return;
+        const run = ++trip, place = LANDMARKS[index], controller = viewer.scene.screenSpaceCameraController;
+        viewer.camera.cancelFlight(); controller.enableInputs = false;
+        if (mobile.matches) expand(false);
+        status(`Finding a safe surface at ${place.name}…`);
+        try {
+          const point = await sampleSurface(place.view);
+          if (run !== trip || !await rise(run)) return;
+          surfaceAnchor = null; mode = "aerial";
+          const heading = bearing(place.view, place);
+          if (!await fly({ destination: C.Cartesian3.fromRadians(point.longitude, point.latitude, TRANSIT_HEIGHT_M),
+            orientation: { heading, pitch: radians(-55), roll: 0 } }, run)) return;
+          surfaceAnchor = point; mode = "ground";
+          if (!await fly({ destination: C.Cartesian3.fromRadians(point.longitude, point.latitude, point.height + EYE_HEIGHT_M),
+            orientation: { heading, pitch: radians(-3), roll: 0 } }, run, 2)) return;
+          select(index);
+          status(`${place.name} · drag to look around`);
+        } catch {
+          if (run === trip) status("Ground surface unavailable. Try again after tiles load, or use Reset view.", true);
+        } finally {
+          if (run === trip) { controls(mode === "ground"); controller.enableInputs = true; }
+        }
+      }
+      async function reset() {
+        if (!ready) return;
+        const run = ++trip, controller = viewer.scene.screenSpaceCameraController;
+        viewer.camera.cancelFlight(); controller.enableInputs = false;
+        if (mobile.matches) expand(false);
+        status("Returning to the park overview…");
+        try {
+          if (!await rise(run)) return;
+          surfaceAnchor = null; mode = "aerial"; select(-1);
+          viewer.resize();
+          if (await fly(overview(), run, 2)) status("Explore City Park · choose a numbered landmark");
+        } finally {
+          if (run === trip) { controls(mode === "ground"); controller.enableInputs = true; }
+        }
+      }
+      $("reset").onclick = reset;
+      async function start() {
+        try {
+          C.Ion.defaultAccessToken = ION_TOKEN;
+          viewer = new C.Viewer("map", {
+            globe: false, baseLayer: false, skyAtmosphere: new C.SkyAtmosphere(),
+            geocoder: false, baseLayerPicker: false, sceneModePicker: false,
+            homeButton: false, navigationHelpButton: false, animation: false, timeline: false,
+            fullscreenButton: false, vrButton: false, infoBox: false, selectionIndicator: false,
+            scene3DOnly: true, shouldAnimate: false, shadows: true, targetFrameRate: 30,
+            creditContainer: $("credits"), creditViewport: document.body
+          });
+          viewer.camera.frustum.fov = radians(70);
+          viewer.camera.frustum.near = 0.2;
+          viewer.clock.shouldAnimate = false;
+          viewer.scene.light = new C.SunLight();
+          viewer.scene.atmosphere.dynamicLighting = C.DynamicAtmosphereLightingType.SUNLIGHT;
+          viewer.shadowMap.size = 1024;
+          viewer.shadowMap.maximumDistance = 5000;
+          viewer.scene.backgroundColor = C.Color.fromCssColorString("#182c26");
+          const controller = viewer.scene.screenSpaceCameraController;
+          controller.enableCollisionDetection = true;
+          controller.minimumZoomDistance = MIN_CLEARANCE_M;
+          controller.maximumZoomDistance = MAX_HEIGHT_M;
+          controller.inertiaSpin = controller.inertiaTranslate = controller.inertiaZoom = 0;
+          controls(false); updateTime();
+          viewer.camera.setView(overview());
+          viewer.scene.preRender.addEventListener(constrainCamera);
+          viewer.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+          viewer.scene.canvas.setAttribute("aria-label", "3D park. Use the landmark list for accessible navigation.");
+          viewer.scene.canvas.addEventListener("webglcontextlost", () =>
+            notice("Graphics connection lost", "Reload this page to restart the 3D view."));
+          if (!ION_TOKEN.trim() || ION_TOKEN === "PASTE_TOKEN_HERE") {
+            notice("One token to get started", "Replace PASTE_TOKEN_HERE in index.html with your Cesium ion access token, enable Google Photorealistic 3D Tiles in your ion account, and reload.");
+            return;
+          }
+          status("Streaming Google Photorealistic 3D Tiles…");
+          // Current 1.147 API. Omitting a Google key selects ion asset 2275207.
+          // No geocoder is enabled, so no non-Google geocoder is used.
+          tileset = await C.createGooglePhotorealistic3DTileset(
+            { onlyUsingWithGoogleGeocoder: true },
+            { showCreditsOnScreen: true, enableCollision: true,
+              maximumScreenSpaceError: 12, preloadFlightDestinations: false,
+              // Retain only the renderer's working set; no offscreen tile cache.
+              cacheBytes: 0, maximumCacheOverflowBytes: 192 * 1024 * 1024 }
+          );
+          viewer.scene.primitives.add(tileset);
+          tileset.shadows = C.ShadowMode.ENABLED;
+          tileset.tileFailed.addEventListener(() => status("Some tiles could not load. Check your connection or ion quota.", true));
+          const pins = new C.PinBuilder();
+          LANDMARKS.forEach((place, i) => markers.push(viewer.entities.add({
+            id: `landmark-${i}`, name: place.name,
+            position: C.Cartesian3.fromDegrees(place.lon, place.lat),
+            billboard: { image: pins.fromText(String(i + 1), C.Color.fromCssColorString("#335e43"), 44).toDataURL(),
+              verticalOrigin: C.VerticalOrigin.BOTTOM, heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY }
+          })));
+          viewer.screenSpaceEventHandler.setInputAction(event => {
+            const picked = viewer.scene.pick(event.position), index = picked ? markers.indexOf(picked.id) : -1;
+            if (index >= 0) visit(index);
+          }, C.ScreenSpaceEventType.LEFT_CLICK);
+          ready = true;
+          buttons.forEach(button => { button.disabled = false; });
+          $("reset").disabled = $("time").disabled = false;
+          status("Explore City Park · choose a numbered landmark");
+        } catch {
+          notice("The 3D view could not start", "Check WebGL support, your ion token, access to asset 2275207, the token’s allowed URLs, and your ion quota. Then reload.");
+        }
+      }
+      start();
+    })();
+  </script>
+</body>
+</html>
