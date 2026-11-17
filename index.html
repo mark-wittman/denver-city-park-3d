@@ -84,7 +84,7 @@
       <ol id="places" aria-label="Landmarks"></ol>
       <button id="reset" type="button" disabled>↗ Reset view</button>
       <label class="time-label" for="time"><span>Time of day</span><output id="timeLabel" for="time"></output></label>
-      <input id="time" type="range" min="5" max="21" step="0.25" value="17" disabled>
+      <input id="time" type="range" min="5" max="21" step="0.25" value="13" disabled>
       <p class="small">June 21 · Denver daylight time<br>The slider moves the sun. The imagery includes photographed shadows.</p>
       <p id="help">Drag to move, scroll to zoom, or right-drag to tilt. On touchscreens, pinch or drag with two fingers to adjust the view.</p>
     </div>
@@ -113,10 +113,10 @@
       },
       {
         name: "Ferril Lake", lat: 39.7461237, lon: -104.9490072,
-        // Centroid of the mapped outer shoreline; viewpoint on the east lake loop.
+        // Outer shoreline centroid. The viewpoint is 38 m west of the east bank, clear of trees.
         source: "https://www.openstreetmap.org/relation/2108217",
-        view: { lat: 39.7463062, lon: -104.9467417 },
-        viewSource: "https://www.openstreetmap.org/node/468152430",
+        view: { lat: 39.7462809, lon: -104.9472778 },
+        viewSource: "https://www.openstreetmap.org/node/969658902",
         splatUrl: ""
       },
       {
@@ -137,10 +137,10 @@
       },
       {
         name: "Denver Zoo entrance", lat: 39.7501174, lon: -104.9489583,
-        // Node explicitly tagged entrance=main; viewpoint on the approach plaza.
+        // Node tagged entrance=main, seen across the pedestrian plaza from inside the gate.
         source: "https://www.openstreetmap.org/node/2123017756",
-        view: { lat: 39.7504320, lon: -104.9486535, pitch: 1 },
-        viewSource: "https://www.openstreetmap.org/node/4167972049",
+        view: { lat: 39.7499347, lon: -104.9492448, pitch: 1 },
+        viewSource: "https://www.openstreetmap.org/node/2123127134",
         splatUrl: ""
       }
     ];
@@ -374,6 +374,9 @@
           viewer.scene.atmosphere.dynamicLighting = C.DynamicAtmosphereLightingType.SUNLIGHT;
           viewer.shadowMap.size = 1024;
           viewer.shadowMap.maximumDistance = 5000;
+          // Photographs already contain shadows. Keep the simulated sun's shadows subtle.
+          viewer.shadowMap.darkness = 0.8;
+          viewer.shadowMap.softShadows = true;
           viewer.scene.backgroundColor = C.Color.fromCssColorString("#182c26");
           const controller = viewer.scene.screenSpaceCameraController;
           controller.enableCollisionDetection = true;
