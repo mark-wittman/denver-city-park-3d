@@ -80,13 +80,13 @@
       <button id="toggle" type="button" aria-expanded="false" aria-controls="panel">Explore</button>
     </div>
     <div id="panel">
-      <p class="intro">Five places. A different perspective.<br>Choose a stop to get close to the park.</p>
+      <p class="intro">Choose a landmark to fly to ground level.</p>
       <ol id="places" aria-label="Landmarks"></ol>
       <button id="reset" type="button" disabled>↗ Reset view</button>
       <label class="time-label" for="time"><span>Time of day</span><output id="timeLabel" for="time"></output></label>
       <input id="time" type="range" min="5" max="21" step="0.25" value="17" disabled>
-      <p class="small">June 21 · Denver daylight time<br>Sun position is simulated; photographed lighting remains.</p>
-      <p id="help">Drag to move · scroll to zoom · right-drag to tilt.<br>Touch: drag, pinch, or drag with two fingers.<br>Select a landmark for a low view.</p>
+      <p class="small">June 21 · Denver daylight time<br>The slider moves the sun. The imagery includes photographed shadows.</p>
+      <p id="help">Drag to move, scroll to zoom, or right-drag to tilt. On touchscreens, pinch or drag with two fingers to adjust the view.</p>
     </div>
   </aside>
   <main aria-label="Interactive 3D view of City Park">
@@ -105,10 +105,10 @@
     const LANDMARKS = [
       {
         name: "Boathouse and Pavilion", lat: 39.7461504, lon: -104.9523410,
-        // Centroid of the mapped pavilion footprint; viewpoint on its west path.
+        // Footprint centroid. Look toward the lakeside facade from 34 m east of the pier tip.
         source: "https://www.openstreetmap.org/way/72601498",
-        view: { lat: 39.7461504, lon: -104.9528792 },
-        viewSource: "https://www.openstreetmap.org/node/2151399338",
+        view: { lat: 39.7462278, lon: -104.9511829, pitch: 2 },
+        viewSource: "https://www.openstreetmap.org/node/1248519480",
         splatUrl: ""
       },
       {
@@ -121,26 +121,26 @@
       },
       {
         name: "City Park Lake (Duck Lake)", lat: 39.7482048, lon: -104.9531880,
-        // Centroid of the mapped outer shoreline; viewpoint on the south sidewalk.
+        // Outer shoreline centroid. Viewpoint halfway from the east bank to island node 1699193217.
         source: "https://www.openstreetmap.org/relation/2108215",
-        view: { lat: 39.7475935, lon: -104.9533908 },
-        viewSource: "https://www.openstreetmap.org/node/13286018707",
+        view: { lat: 39.7480506, lon: -104.9522919 },
+        viewSource: "https://www.openstreetmap.org/node/1248537086",
         splatUrl: ""
       },
       {
         name: "Denver Museum of Nature & Science · west steps", lat: 39.7474673, lon: -104.9439246,
-        // Midpoint of the mapped west staircase; viewpoint at its upper end, facing west.
+        // Midpoint of the mapped west staircase, seen from the path facing the steps.
         source: "https://www.openstreetmap.org/way/157659618",
-        view: { lat: 39.7474748, lon: -104.9438755 },
-        viewSource: "https://www.openstreetmap.org/node/1699210003",
+        view: { lat: 39.7474332, lon: -104.9444099, pitch: 4 },
+        viewSource: "https://www.openstreetmap.org/node/1699191720",
         splatUrl: ""
       },
       {
         name: "Denver Zoo entrance", lat: 39.7501174, lon: -104.9489583,
         // Node explicitly tagged entrance=main; viewpoint on the approach plaza.
         source: "https://www.openstreetmap.org/node/2123017756",
-        view: { lat: 39.7502073, lon: -104.9490129 },
-        viewSource: "https://www.openstreetmap.org/node/4798020133",
+        view: { lat: 39.7504320, lon: -104.9486535, pitch: 1 },
+        viewSource: "https://www.openstreetmap.org/node/4167972049",
         splatUrl: ""
       }
     ];
@@ -243,7 +243,10 @@
       }
       function select(index) {
         buttons.forEach((button, i) => button.setAttribute("aria-pressed", String(i === index)));
-        markers.forEach((marker, i) => { marker.show = i !== index; });
+        markers.forEach((marker, i) => {
+          marker.show = i !== index;
+          marker.billboard.disableDepthTestDistance = index < 0 ? Number.POSITIVE_INFINITY : 0;
+        });
       }
       function overview() {
         const lon = (PARK.west + PARK.east) / 2, lat = PARK.south - 0.0006;
@@ -268,8 +271,8 @@
         const atAnchor = surfaceAnchor && Math.abs(lon - surfaceAnchor.longitude) < 1e-8 &&
           Math.abs(lat - surfaceAnchor.latitude) < 1e-8;
         if (atAnchor) floor = surfaceAnchor.height + MIN_CLEARANCE_M;
-        if (tileset && viewer.scene.sampleHeightSupported && position.height < TRANSIT_HEIGHT_M) {
-          const liveHeight = viewer.scene.sampleHeight(new C.Cartographic(lon, lat), markers, 0.5);
+        if (tileset && position.height < TRANSIT_HEIGHT_M) {
+          const liveHeight = tileset.getHeight(new C.Cartographic(lon, lat, position.height), viewer.scene);
           if (Number.isFinite(liveHeight)) floor = Math.max(floor, liveHeight + MIN_CLEARANCE_M);
         }
         const height = clamp(position.height, Math.min(floor, MAX_HEIGHT_M), MAX_HEIGHT_M);
@@ -328,7 +331,7 @@
             orientation: { heading, pitch: radians(-55), roll: 0 } }, run)) return;
           surfaceAnchor = point; mode = "ground";
           if (!await fly({ destination: C.Cartesian3.fromRadians(point.longitude, point.latitude, point.height + EYE_HEIGHT_M),
-            orientation: { heading, pitch: radians(-3), roll: 0 } }, run, 2)) return;
+            orientation: { heading, pitch: radians(place.view.pitch ?? -2), roll: 0 } }, run, 2)) return;
           select(index);
           status(`${place.name} · drag to look around`);
         } catch {
@@ -394,10 +397,13 @@
           tileset = await C.createGooglePhotorealistic3DTileset(
             { onlyUsingWithGoogleGeocoder: true },
             { showCreditsOnScreen: true, enableCollision: true,
-              maximumScreenSpaceError: 12, preloadFlightDestinations: false,
-              // Retain only the renderer's working set; no offscreen tile cache.
-              cacheBytes: 0, maximumCacheOverflowBytes: 192 * 1024 * 1024 }
+              maximumScreenSpaceError: 8, preloadFlightDestinations: false,
+              cacheBytes: (mobile.matches ? 192 : 384) * 1024 * 1024,
+              maximumCacheOverflowBytes: (mobile.matches ? 96 : 256) * 1024 * 1024 }
           );
+          // Drop tiles outside the current render working set every frame. The memory
+          // targets above let Cesium recover detail after the visible scene changes.
+          viewer.scene.preUpdate.addEventListener(() => tileset.trimLoadedTiles());
           viewer.scene.primitives.add(tileset);
           tileset.shadows = C.ShadowMode.ENABLED;
           tileset.tileFailed.addEventListener(() => status("Some tiles could not load. Check your connection or ion quota.", true));
